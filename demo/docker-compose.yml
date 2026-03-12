@@ -1,0 +1,59 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-alpine
+    ports:
+      - "5672:5672"
+    tmpfs:
+      - /var/lib/rabbitmq
+    restart: on-failure
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./BaseDatos.sql:/docker-entrypoint-initdb.d/01-BaseDatos.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  cliente:
+    build: ./cliente
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/clientedb
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+    depends_on:
+      - postgres
+      - rabbitmq
+    restart: on-failure
+
+  cuenta:
+    build: ./cuenta
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cuentadb
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+    depends_on:
+      - postgres
+      - rabbitmq
+    restart: on-failure
